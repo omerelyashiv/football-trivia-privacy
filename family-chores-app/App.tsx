@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import MembersBar from './src/components/MembersBar';
 import ChoresTable from './src/components/ChoresTable';
+import RemindersList from './src/components/RemindersList';
 import { loadData, saveData, DEFAULT_DATA } from './src/storage';
 import { AppData } from './src/types';
 
@@ -54,6 +55,12 @@ export default function App() {
           onChoresChange={(chores) => setData((d) => ({ ...d, chores }))}
           onAssignmentsChange={(assignments) => setData((d) => ({ ...d, assignments }))}
           onDoneChange={(done) => setData((d) => ({ ...d, done }))}
+        />
+
+        <RemindersList
+          reminders={data.reminders}
+          members={data.members}
+          onChange={(reminders) => setData((d) => ({ ...d, reminders }))}
         />
       </ScrollView>
     </SafeAreaView>

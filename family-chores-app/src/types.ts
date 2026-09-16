@@ -27,9 +27,19 @@ export type Assignments = Record<string, Partial<Record<DayOfWeek, string>>>;
 // done[choreId][day] = true | undefined
 export type DoneMap = Record<string, Partial<Record<DayOfWeek, boolean>>>;
 
+export interface Reminder {
+  id: string;
+  text: string;
+  dueAt?: string; // ISO datetime string, undefined = no specific date
+  assignedTo?: string; // FamilyMember id
+  done: boolean;
+  notificationId?: string;
+}
+
 export interface AppData {
   members: FamilyMember[];
   chores: Chore[];
   assignments: Assignments;
   done: DoneMap;
+  reminders: Reminder[];
 }

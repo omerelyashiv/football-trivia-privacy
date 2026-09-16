@@ -8,6 +8,7 @@ export const DEFAULT_DATA: AppData = {
   chores: [],
   assignments: {},
   done: {},
+  reminders: [],
 };
 
 export async function loadData(): Promise<AppData> {
