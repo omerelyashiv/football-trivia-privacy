@@ -99,7 +99,7 @@ export default function RemindersList({ reminders, members, onChange }: Props) {
             <TouchableOpacity style={styles.checkbox} onPress={() => toggleDone(r.id)}>
               <Text style={styles.checkboxMark}>{r.done ? '✓' : ''}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.rowBody} onLongPress={() => removeReminder(r.id)}>
+            <View style={styles.rowBody}>
               <Text style={[styles.rowText, r.done && styles.rowTextDone]} numberOfLines={2}>
                 {r.text}
               </Text>
@@ -120,6 +120,9 @@ export default function RemindersList({ reminders, members, onChange }: Props) {
                   )}
                 </TouchableOpacity>
               </View>
+            </View>
+            <TouchableOpacity style={styles.deleteButton} onPress={() => removeReminder(r.id)}>
+              <Text style={styles.deleteButtonText}>✕</Text>
             </TouchableOpacity>
           </View>
         );
@@ -153,9 +156,7 @@ export default function RemindersList({ reminders, members, onChange }: Props) {
           <Text style={styles.addButtonText}>הוסף תזכורת</Text>
         </TouchableOpacity>
       </View>
-      {reminders.length > 0 && (
-        <Text style={styles.hint}>לחיצה ארוכה על תזכורת = מחיקה</Text>
-      )}
+      {reminders.length > 0 && <Text style={styles.hint}>✕ = מחיקה</Text>}
 
       <AssignPickerModal
         visible={assignFor !== null}
@@ -185,6 +186,16 @@ const styles = StyleSheet.create({
   },
   checkboxMark: { color: '#123B27', fontWeight: '900', fontSize: 13 },
   rowBody: { flex: 1 },
+  deleteButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#f2f2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  deleteButtonText: { fontSize: 11, color: '#999', fontWeight: '700' },
   rowText: { fontSize: 14, color: '#222', textAlign: 'right', fontWeight: '600' },
   rowTextDone: { textDecorationLine: 'line-through', color: '#999' },
   metaRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginTop: 4 },

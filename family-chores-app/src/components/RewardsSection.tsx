@@ -71,10 +71,15 @@ export default function RewardsSection({
 
       {rewards.map((r) => (
         <View key={r.id} style={styles.rewardRow}>
-          <TouchableOpacity onLongPress={() => removeReward(r.id)}>
-            <Text style={styles.rewardName}>{r.name}</Text>
-            <Text style={styles.rewardCost}>⭐ {r.cost} נקודות</Text>
-          </TouchableOpacity>
+          <View style={styles.rewardHeaderRow}>
+            <TouchableOpacity style={styles.deleteButton} onPress={() => removeReward(r.id)}>
+              <Text style={styles.deleteButtonText}>✕</Text>
+            </TouchableOpacity>
+            <View style={styles.rewardInfo}>
+              <Text style={styles.rewardName}>{r.name}</Text>
+              <Text style={styles.rewardCost}>⭐ {r.cost} נקודות</Text>
+            </View>
+          </View>
           {members.length > 0 && (
             <View style={styles.redeemRow}>
               <Text style={styles.redeemLabel}>מי מממש:</Text>
@@ -104,10 +109,11 @@ export default function RewardsSection({
           onChangeText={setName}
           textAlign="right"
         />
+        <Text style={styles.label}>עלות בנקודות:</Text>
         <View style={styles.costRow}>
           <TextInput
             style={styles.costInput}
-            placeholder="עלות בנקודות"
+            placeholder="לדוגמה: 50"
             placeholderTextColor="#999"
             value={cost}
             onChangeText={setCost}
@@ -119,7 +125,7 @@ export default function RewardsSection({
           </TouchableOpacity>
         </View>
       </View>
-      {rewards.length > 0 && <Text style={styles.hint}>לחיצה על שם = מממש בעצמו · לחיצה ארוכה על פרס = הסרה</Text>}
+      {rewards.length > 0 && <Text style={styles.hint}>לחיצה על שם = מממש בעצמו · ✕ = הסרה</Text>}
     </View>
   );
 }
@@ -136,8 +142,19 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
     gap: 8,
   },
+  rewardHeaderRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 8 },
+  rewardInfo: { flex: 1 },
   rewardName: { fontSize: 14, fontWeight: '600', color: '#222', textAlign: 'right' },
   rewardCost: { fontSize: 12, color: '#B8860B', textAlign: 'right', marginTop: 2 },
+  deleteButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#f2f2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: { fontSize: 11, color: '#999', fontWeight: '700' },
   redeemRow: { flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   redeemLabel: { fontSize: 11, color: '#999' },
   redeemChips: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, flex: 1 },
@@ -145,6 +162,7 @@ const styles = StyleSheet.create({
   memberButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   empty: { textAlign: 'right', color: '#999', fontSize: 13, paddingVertical: 8 },
   addBox: { marginTop: 14 },
+  label: { fontSize: 12, color: '#666', textAlign: 'right', fontWeight: '600', marginTop: 10 },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -153,7 +171,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
   },
-  costRow: { flexDirection: 'row-reverse', gap: 8, marginTop: 10, alignItems: 'center' },
+  costRow: { flexDirection: 'row-reverse', gap: 8, marginTop: 6, alignItems: 'center' },
   costInput: {
     flex: 1,
     borderWidth: 1,

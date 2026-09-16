@@ -45,13 +45,12 @@ export default function MembersBar({ members, onChange }: Props) {
       <Text style={styles.title}>👨‍👩‍👧‍👦 בני משפחה</Text>
       <View style={styles.chipsRow}>
         {members.map((m) => (
-          <TouchableOpacity
-            key={m.id}
-            style={[styles.chip, { backgroundColor: m.color }]}
-            onLongPress={() => removeMember(m.id)}
-          >
+          <View key={m.id} style={[styles.chip, { backgroundColor: m.color }]}>
             <Text style={styles.chipText}>{m.name}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.chipDelete} onPress={() => removeMember(m.id)}>
+              <Text style={styles.chipDeleteText}>✕</Text>
+            </TouchableOpacity>
+          </View>
         ))}
       </View>
       <View style={styles.addRow}>
@@ -69,7 +68,6 @@ export default function MembersBar({ members, onChange }: Props) {
           <Text style={styles.addButtonText}>הוסף</Text>
         </TouchableOpacity>
       </View>
-      {members.length > 0 && <Text style={styles.hint}>לחיצה ארוכה על שם כדי להסיר</Text>}
     </View>
   );
 }
@@ -78,8 +76,24 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   title: { fontSize: 15, fontWeight: '600', color: '#333', textAlign: 'right', marginBottom: 8 },
   chipsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  chip: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
   chipText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  chipDelete: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipDeleteText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   addRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
   input: {
     flex: 1,
@@ -97,5 +111,4 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  hint: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 6 },
 });

@@ -113,19 +113,21 @@ export default function ChoresTable({
 
           {chores.map((chore) => (
             <View key={chore.id} style={styles.row}>
-              <TouchableOpacity
-                style={[styles.cell, styles.nameCol]}
-                onLongPress={() => removeChore(chore.id)}
-              >
-                <Text style={styles.choreName} numberOfLines={2}>
-                  {chore.name}
-                </Text>
+              <View style={[styles.cell, styles.nameCol]}>
+                <View style={styles.nameHeaderRow}>
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => removeChore(chore.id)}>
+                    <Text style={styles.deleteButtonText}>✕</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.choreName} numberOfLines={2}>
+                    {chore.name}
+                  </Text>
+                </View>
                 {chore.points > 0 && (
                   <View style={styles.pointsBadge}>
                     <Text style={styles.pointsBadgeText}>⭐ {chore.points}</Text>
                   </View>
                 )}
-              </TouchableOpacity>
+              </View>
               {DAYS.map((d) => {
                 const applies = chore.days.includes(d.key);
                 if (!applies) {
@@ -135,23 +137,28 @@ export default function ChoresTable({
                 const isDone = done[chore.id]?.[d.key] ?? false;
                 return (
                   <View key={d.key} style={[styles.cell, styles.dayCol]}>
-                    <TouchableOpacity
-                      style={[
-                        styles.assignBox,
-                        member ? { backgroundColor: member.color } : styles.assignBoxEmpty,
-                        isDone && styles.assignBoxDone,
-                      ]}
-                      onPress={() => setPicker({ choreId: chore.id, day: d.key })}
-                      onLongPress={() => member && toggleDone(chore, d.key)}
-                    >
-                      <Text
-                        style={member ? styles.assignedText : styles.emptyText}
-                        numberOfLines={1}
+                    {member ? (
+                      <View style={[styles.assignBox, { backgroundColor: member.color }, isDone && styles.assignBoxDone]}>
+                        <TouchableOpacity style={styles.doneCheckbox} onPress={() => toggleDone(chore, d.key)}>
+                          <Text style={styles.doneCheckboxMark}>{isDone ? '✓' : ''}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.assignedNameArea}
+                          onPress={() => setPicker({ choreId: chore.id, day: d.key })}
+                        >
+                          <Text style={styles.assignedText} numberOfLines={1}>
+                            {member.name}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.assignBox, styles.assignBoxEmpty]}
+                        onPress={() => setPicker({ choreId: chore.id, day: d.key })}
                       >
-                        {member ? member.name : 'הקצה'}
-                      </Text>
-                      {isDone && <Text style={styles.doneCheck}>✓</Text>}
-                    </TouchableOpacity>
+                        <Text style={styles.emptyText}>הקצה</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 );
               })}
@@ -161,27 +168,26 @@ export default function ChoresTable({
       </ScrollView>
 
       <View style={styles.addChoreBox}>
-        <View style={styles.addChoreRow}>
-          <TextInput
-            style={styles.input}
-            placeholder="הוסף מטלה חדשה..."
-            placeholderTextColor="#999"
-            value={newChoreName}
-            onChangeText={setNewChoreName}
-            onSubmitEditing={addChore}
-            returnKeyType="done"
-            textAlign="right"
-          />
-          <TextInput
-            style={styles.pointsInput}
-            placeholder="נק'"
-            placeholderTextColor="#999"
-            value={newChorePoints}
-            onChangeText={setNewChorePoints}
-            keyboardType="number-pad"
-            textAlign="center"
-          />
-        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="הוסף מטלה חדשה..."
+          placeholderTextColor="#999"
+          value={newChoreName}
+          onChangeText={setNewChoreName}
+          onSubmitEditing={addChore}
+          returnKeyType="done"
+          textAlign="right"
+        />
+        <Text style={styles.label}>נקודות למטלה:</Text>
+        <TextInput
+          style={styles.pointsInput}
+          placeholder="לדוגמה: 5"
+          placeholderTextColor="#999"
+          value={newChorePoints}
+          onChangeText={setNewChorePoints}
+          keyboardType="number-pad"
+          textAlign="center"
+        />
         <Text style={styles.label}>באילו ימים:</Text>
         <View style={styles.daysRow}>
           {ALL_DAYS.map((d) => (
@@ -201,9 +207,7 @@ export default function ChoresTable({
         </TouchableOpacity>
       </View>
       {chores.length > 0 && (
-        <Text style={styles.hint}>
-          לחיצה על תא = שיוך בן משפחה · לחיצה ארוכה על תא משויך = סימון בוצע (מזכה בנקודות) · לחיצה ארוכה על שם מטלה = הסרה
-        </Text>
+        <Text style={styles.hint}>לחיצה על "הקצה" = שיוך בן משפחה · לחיצה על העיגול = סימון בוצע · ✕ = הסרה</Text>
       )}
 
       <AssignPickerModal
@@ -223,11 +227,21 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row-reverse' },
   row: { flexDirection: 'row-reverse', borderTopWidth: 1, borderTopColor: '#eee' },
   cell: { padding: 6, justifyContent: 'center', alignItems: 'center' },
-  nameCol: { width: NAME_COL_WIDTH, alignItems: 'flex-end', paddingRight: 10 },
+  nameCol: { width: NAME_COL_WIDTH, alignItems: 'flex-end', paddingRight: 6 },
   dayCol: { width: DAY_COL_WIDTH },
   headerCell: { paddingVertical: 10 },
   headerText: { fontWeight: '700', fontSize: 12, color: '#444' },
-  choreName: { fontSize: 13, fontWeight: '600', color: '#222', textAlign: 'right' },
+  nameHeaderRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4 },
+  choreName: { fontSize: 13, fontWeight: '600', color: '#222', textAlign: 'right', flexShrink: 1 },
+  deleteButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#f2f2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: { fontSize: 11, color: '#999', fontWeight: '700' },
   pointsBadge: {
     backgroundColor: '#FFF3D6',
     borderRadius: 10,
@@ -240,19 +254,28 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 44,
     borderRadius: 10,
-    justifyContent: 'center',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     paddingHorizontal: 4,
   },
-  assignBoxEmpty: { backgroundColor: '#f2f2f2', borderWidth: 1, borderColor: '#e3e3e3', borderStyle: 'dashed' },
+  assignBoxEmpty: { backgroundColor: '#f2f2f2', borderWidth: 1, borderColor: '#e3e3e3', borderStyle: 'dashed', justifyContent: 'center' },
   assignBoxDone: { opacity: 0.5 },
-  assignedText: { color: '#fff', fontWeight: '600', fontSize: 12 },
+  doneCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneCheckboxMark: { color: '#fff', fontWeight: '900', fontSize: 11 },
+  assignedNameArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
+  assignedText: { color: '#fff', fontWeight: '600', fontSize: 11 },
   emptyText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
-  doneCheck: { position: 'absolute', top: 2, left: 4, color: '#fff', fontWeight: '900', fontSize: 12 },
-  addChoreBox: { paddingHorizontal: 16, marginTop: 14, gap: 8 },
-  addChoreRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
+  addChoreBox: { paddingHorizontal: 16, marginTop: 14, gap: 6 },
   input: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
@@ -261,15 +284,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   pointsInput: {
-    width: 52,
+    alignSelf: 'flex-end',
+    width: 90,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 8,
     fontSize: 14,
+    textAlign: 'center',
   },
-  label: { fontSize: 12, color: '#666', textAlign: 'right', fontWeight: '600' },
+  label: { fontSize: 12, color: '#666', textAlign: 'right', fontWeight: '600', marginTop: 4 },
   daysRow: { flexDirection: 'row-reverse', gap: 6 },
   dayChip: {
     width: 34,
@@ -282,7 +307,7 @@ const styles = StyleSheet.create({
   dayChipSelected: { backgroundColor: '#FF6B35' },
   dayChipText: { fontSize: 13, color: '#666', fontWeight: '600' },
   dayChipTextSelected: { color: '#fff' },
-  addButton: { backgroundColor: '#123B27', paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  addButton: { backgroundColor: '#123B27', paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginTop: 4 },
   addButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   hint: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 8, paddingHorizontal: 16 },
 });

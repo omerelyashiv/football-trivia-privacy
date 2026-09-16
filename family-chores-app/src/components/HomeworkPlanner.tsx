@@ -39,6 +39,7 @@ const SUBJECT_COL_WIDTH = 84;
 const TASK_COL_WIDTH = 140;
 const POINTS_COL_WIDTH = 46;
 const DONE_COL_WIDTH = 36;
+const DELETE_COL_WIDTH = 32;
 
 function todayPlus(days: number): { day: string; month: string } {
   const d = new Date();
@@ -182,17 +183,14 @@ export default function HomeworkPlanner({ homework, members, pointsBalance, onCh
               <View style={[styles.cell, styles.doneCol, styles.headerCell]}>
                 <Text style={styles.headerText}>✓</Text>
               </View>
+              <View style={[styles.cell, styles.deleteCol, styles.headerCell]} />
             </View>
 
             {sorted.map((h) => {
               const member = members.find((m) => m.id === h.assignedTo);
               const overdue = !h.done && isOverdue(h.dueAt);
               return (
-                <TouchableOpacity
-                  key={h.id}
-                  style={styles.row}
-                  onLongPress={() => removeHomework(h.id)}
-                >
+                <View key={h.id} style={styles.row}>
                   <View style={[styles.cell, styles.dateCol]}>
                     <Text style={[styles.dateText, overdue && styles.overdueText]}>{formatDueDate(h.dueAt)}</Text>
                   </View>
@@ -222,7 +220,12 @@ export default function HomeworkPlanner({ homework, members, pointsBalance, onCh
                       <Text style={styles.checkboxMark}>{h.done ? '✓' : ''}</Text>
                     </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                  <View style={[styles.cell, styles.deleteCol]}>
+                    <TouchableOpacity style={styles.deleteButton} onPress={() => removeHomework(h.id)}>
+                      <Text style={styles.deleteButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               );
             })}
           </View>
@@ -316,7 +319,7 @@ export default function HomeworkPlanner({ homework, members, pointsBalance, onCh
         </TouchableOpacity>
       </View>
       {homework.length > 0 && (
-        <Text style={styles.hint}>לחיצה על "מה לעשות" = שיוך לילד/ה · לחיצה ארוכה על שורה = מחיקה</Text>
+        <Text style={styles.hint}>לחיצה על "מה לעשות" = שיוך לילד/ה · ✕ = מחיקה</Text>
       )}
 
       <AssignPickerModal
@@ -344,6 +347,16 @@ const styles = StyleSheet.create({
   taskCol: { width: TASK_COL_WIDTH, alignItems: 'flex-end', paddingRight: 8 },
   pointsCol: { width: POINTS_COL_WIDTH },
   doneCol: { width: DONE_COL_WIDTH },
+  deleteCol: { width: DELETE_COL_WIDTH },
+  deleteButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#f2f2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: { fontSize: 11, color: '#999', fontWeight: '700' },
   dateText: { fontSize: 11, color: '#555', textAlign: 'center' },
   overdueText: { color: '#c33', fontWeight: '700' },
   subjectText: { fontSize: 12, fontWeight: '700', color: '#7768AE', textAlign: 'right' },
