@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Alert } from 'react-native';
-import { Chore, FamilyMember, Assignments, DoneMap, DAYS, DayOfWeek } from '../types';
+import { Chore, FamilyMember, Assignments, DoneMap, PointsBalance, DAYS, DayOfWeek } from '../types';
 import { generateId } from '../id';
 import AssignPickerModal from './AssignPickerModal';
 
@@ -9,31 +9,39 @@ interface Props {
   members: FamilyMember[];
   assignments: Assignments;
   done: DoneMap;
+  pointsBalance: PointsBalance;
   onChoresChange: (chores: Chore[]) => void;
   onAssignmentsChange: (assignments: Assignments) => void;
   onDoneChange: (done: DoneMap) => void;
+  onPointsBalanceChange: (pointsBalance: PointsBalance) => void;
 }
 
-const NAME_COL_WIDTH = 110;
+const NAME_COL_WIDTH = 116;
 const DAY_COL_WIDTH = 86;
+const DEFAULT_POINTS = 5;
 
 export default function ChoresTable({
   chores,
   members,
   assignments,
   done,
+  pointsBalance,
   onChoresChange,
   onAssignmentsChange,
   onDoneChange,
+  onPointsBalanceChange,
 }: Props) {
   const [newChoreName, setNewChoreName] = useState('');
+  const [newChorePoints, setNewChorePoints] = useState(String(DEFAULT_POINTS));
   const [picker, setPicker] = useState<{ choreId: string; day: DayOfWeek } | null>(null);
 
   function addChore() {
     const trimmed = newChoreName.trim();
     if (!trimmed) return;
-    onChoresChange([...chores, { id: generateId(), name: trimmed }]);
+    const points = Math.max(0, parseInt(newChorePoints, 10) || 0);
+    onChoresChange([...chores, { id: generateId(), name: trimmed, points }]);
     setNewChoreName('');
+    setNewChorePoints(String(DEFAULT_POINTS));
   }
 
   function removeChore(id: string) {
@@ -60,10 +68,18 @@ export default function ChoresTable({
     onAssignmentsChange(next);
   }
 
-  function toggleDone(choreId: string, day: DayOfWeek) {
-    const current = done[choreId]?.[day] ?? false;
-    const next: DoneMap = { ...done, [choreId]: { ...done[choreId], [day]: !current } };
+  function toggleDone(chore: Chore, day: DayOfWeek) {
+    const current = done[chore.id]?.[day] ?? false;
+    const willBeDone = !current;
+    const next: DoneMap = { ...done, [chore.id]: { ...done[chore.id], [day]: willBeDone } };
     onDoneChange(next);
+
+    const memberId = assignments[chore.id]?.[day];
+    if (memberId && chore.points > 0) {
+      const delta = willBeDone ? chore.points : -chore.points;
+      const currentBalance = pointsBalance[memberId] ?? 0;
+      onPointsBalanceChange({ ...pointsBalance, [memberId]: currentBalance + delta });
+    }
   }
 
   return (
@@ -90,6 +106,11 @@ export default function ChoresTable({
                 <Text style={styles.choreName} numberOfLines={2}>
                   {chore.name}
                 </Text>
+                {chore.points > 0 && (
+                  <View style={styles.pointsBadge}>
+                    <Text style={styles.pointsBadgeText}>⭐ {chore.points}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
               {DAYS.map((d) => {
                 const member = memberFor(chore.id, d.key);
@@ -103,7 +124,7 @@ export default function ChoresTable({
                         isDone && styles.assignBoxDone,
                       ]}
                       onPress={() => setPicker({ choreId: chore.id, day: d.key })}
-                      onLongPress={() => member && toggleDone(chore.id, d.key)}
+                      onLongPress={() => member && toggleDone(chore, d.key)}
                     >
                       <Text
                         style={member ? styles.assignedText : styles.emptyText}
@@ -132,12 +153,23 @@ export default function ChoresTable({
           returnKeyType="done"
           textAlign="right"
         />
+        <TextInput
+          style={styles.pointsInput}
+          placeholder="נק'"
+          placeholderTextColor="#999"
+          value={newChorePoints}
+          onChangeText={setNewChorePoints}
+          keyboardType="number-pad"
+          textAlign="center"
+        />
         <TouchableOpacity style={styles.addButton} onPress={addChore}>
           <Text style={styles.addButtonText}>הוסף</Text>
         </TouchableOpacity>
       </View>
       {chores.length > 0 && (
-        <Text style={styles.hint}>לחיצה = שיוך בן משפחה · לחיצה ארוכה על תא משויך = סימון בוצע · לחיצה ארוכה על שם מטלה = הסרה</Text>
+        <Text style={styles.hint}>
+          לחיצה = שיוך בן משפחה · לחיצה ארוכה על תא משויך = סימון בוצע (מזכה בנקודות) · לחיצה ארוכה על שם מטלה = הסרה
+        </Text>
       )}
 
       <AssignPickerModal
@@ -162,10 +194,18 @@ const styles = StyleSheet.create({
   headerCell: { paddingVertical: 10 },
   headerText: { fontWeight: '700', fontSize: 12, color: '#444' },
   choreName: { fontSize: 13, fontWeight: '600', color: '#222', textAlign: 'right' },
+  pointsBadge: {
+    backgroundColor: '#FFF3D6',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginTop: 3,
+  },
+  pointsBadgeText: { fontSize: 10, color: '#B8860B', fontWeight: '700' },
   assignBox: {
     width: '100%',
     minHeight: 44,
-    borderRadius: 8,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
@@ -180,12 +220,21 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
   },
-  addButton: { backgroundColor: '#123B27', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8 },
-  addButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  pointsInput: {
+    width: 52,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  addButton: { backgroundColor: '#FF6B35', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10 },
+  addButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   hint: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 8, paddingHorizontal: 16 },
 });

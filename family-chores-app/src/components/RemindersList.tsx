@@ -89,7 +89,7 @@ export default function RemindersList({ reminders, members, onChange }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>תזכורות (שיעורי בית וכו')</Text>
+      <Text style={styles.title}>⏰ תזכורות (שיעורי בית וכו')</Text>
 
       {sorted.map((r) => {
         const member = members.find((m) => m.id === r.assignedTo);
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   optionChipSelected: { backgroundColor: '#123B27' },
   optionText: { fontSize: 12, color: '#555' },
   optionTextSelected: { color: '#fff', fontWeight: '600' },
-  addButton: { backgroundColor: '#123B27', paddingVertical: 10, borderRadius: 8, marginTop: 12, alignItems: 'center' },
+  addButton: { backgroundColor: '#FF6B35', paddingVertical: 10, borderRadius: 10, marginTop: 12, alignItems: 'center' },
   addButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   hint: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 8 },
 });

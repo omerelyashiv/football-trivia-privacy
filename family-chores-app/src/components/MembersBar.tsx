@@ -42,7 +42,7 @@ export default function MembersBar({ members, onChange }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>בני משפחה</Text>
+      <Text style={styles.title}>👨‍👩‍👧‍👦 בני משפחה</Text>
       <View style={styles.chipsRow}>
         {members.map((m) => (
           <TouchableOpacity
@@ -91,10 +91,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   addButton: {
-    backgroundColor: '#123B27',
+    backgroundColor: '#FF6B35',
     paddingHorizontal: 16,
     paddingVertical: 9,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   addButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   hint: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 6 },

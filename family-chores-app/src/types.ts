@@ -19,6 +19,7 @@ export interface FamilyMember {
 export interface Chore {
   id: string;
   name: string;
+  points: number;
 }
 
 // assignments[choreId][day] = memberId | undefined
@@ -36,10 +37,21 @@ export interface Reminder {
   notificationId?: string;
 }
 
+export interface Reward {
+  id: string;
+  name: string;
+  cost: number;
+}
+
+// pointsBalance[memberId] = accumulated points
+export type PointsBalance = Record<string, number>;
+
 export interface AppData {
   members: FamilyMember[];
   chores: Chore[];
   assignments: Assignments;
   done: DoneMap;
   reminders: Reminder[];
+  rewards: Reward[];
+  pointsBalance: PointsBalance;
 }
