@@ -20,6 +20,7 @@ export interface Chore {
   id: string;
   name: string;
   points: number;
+  days: DayOfWeek[]; // which days of the week this chore applies to
 }
 
 // assignments[choreId][day] = memberId | undefined
@@ -49,6 +50,7 @@ export interface Homework {
   assignedTo?: string; // FamilyMember id
   reminderOffsets: HomeworkReminderOffset[]; // days-before-due reminders that were requested
   notificationIds: string[];
+  points: number;
   done: boolean;
 }
 

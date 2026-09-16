@@ -19,6 +19,10 @@ interface Props {
 const NAME_COL_WIDTH = 116;
 const DAY_COL_WIDTH = 86;
 const DEFAULT_POINTS = 5;
+const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
+const SHORT_DAY_LABELS: Record<DayOfWeek, string> = {
+  0: 'א', 1: 'ב', 2: 'ג', 3: 'ד', 4: 'ה', 5: 'ו', 6: 'ש',
+};
 
 export default function ChoresTable({
   chores,
@@ -33,15 +37,25 @@ export default function ChoresTable({
 }: Props) {
   const [newChoreName, setNewChoreName] = useState('');
   const [newChorePoints, setNewChorePoints] = useState(String(DEFAULT_POINTS));
+  const [newChoreDays, setNewChoreDays] = useState<Set<DayOfWeek>>(new Set(ALL_DAYS));
   const [picker, setPicker] = useState<{ choreId: string; day: DayOfWeek } | null>(null);
+
+  function toggleNewChoreDay(day: DayOfWeek) {
+    const next = new Set(newChoreDays);
+    if (next.has(day)) next.delete(day);
+    else next.add(day);
+    setNewChoreDays(next);
+  }
 
   function addChore() {
     const trimmed = newChoreName.trim();
-    if (!trimmed) return;
+    if (!trimmed || newChoreDays.size === 0) return;
     const points = Math.max(0, parseInt(newChorePoints, 10) || 0);
-    onChoresChange([...chores, { id: generateId(), name: trimmed, points }]);
+    const days = ALL_DAYS.filter((d) => newChoreDays.has(d));
+    onChoresChange([...chores, { id: generateId(), name: trimmed, points, days }]);
     setNewChoreName('');
     setNewChorePoints(String(DEFAULT_POINTS));
+    setNewChoreDays(new Set(ALL_DAYS));
   }
 
   function removeChore(id: string) {
@@ -113,6 +127,10 @@ export default function ChoresTable({
                 )}
               </TouchableOpacity>
               {DAYS.map((d) => {
+                const applies = chore.days.includes(d.key);
+                if (!applies) {
+                  return <View key={d.key} style={[styles.cell, styles.dayCol]} />;
+                }
                 const member = memberFor(chore.id, d.key);
                 const isDone = done[chore.id]?.[d.key] ?? false;
                 return (
@@ -130,7 +148,7 @@ export default function ChoresTable({
                         style={member ? styles.assignedText : styles.emptyText}
                         numberOfLines={1}
                       >
-                        {member ? member.name : '—'}
+                        {member ? member.name : 'הקצה'}
                       </Text>
                       {isDone && <Text style={styles.doneCheck}>✓</Text>}
                     </TouchableOpacity>
@@ -142,33 +160,49 @@ export default function ChoresTable({
         </View>
       </ScrollView>
 
-      <View style={styles.addChoreRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="הוסף מטלה חדשה..."
-          placeholderTextColor="#999"
-          value={newChoreName}
-          onChangeText={setNewChoreName}
-          onSubmitEditing={addChore}
-          returnKeyType="done"
-          textAlign="right"
-        />
-        <TextInput
-          style={styles.pointsInput}
-          placeholder="נק'"
-          placeholderTextColor="#999"
-          value={newChorePoints}
-          onChangeText={setNewChorePoints}
-          keyboardType="number-pad"
-          textAlign="center"
-        />
+      <View style={styles.addChoreBox}>
+        <View style={styles.addChoreRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="הוסף מטלה חדשה..."
+            placeholderTextColor="#999"
+            value={newChoreName}
+            onChangeText={setNewChoreName}
+            onSubmitEditing={addChore}
+            returnKeyType="done"
+            textAlign="right"
+          />
+          <TextInput
+            style={styles.pointsInput}
+            placeholder="נק'"
+            placeholderTextColor="#999"
+            value={newChorePoints}
+            onChangeText={setNewChorePoints}
+            keyboardType="number-pad"
+            textAlign="center"
+          />
+        </View>
+        <Text style={styles.label}>באילו ימים:</Text>
+        <View style={styles.daysRow}>
+          {ALL_DAYS.map((d) => (
+            <TouchableOpacity
+              key={d}
+              style={[styles.dayChip, newChoreDays.has(d) && styles.dayChipSelected]}
+              onPress={() => toggleNewChoreDay(d)}
+            >
+              <Text style={[styles.dayChipText, newChoreDays.has(d) && styles.dayChipTextSelected]}>
+                {SHORT_DAY_LABELS[d]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         <TouchableOpacity style={styles.addButton} onPress={addChore}>
-          <Text style={styles.addButtonText}>הוסף</Text>
+          <Text style={styles.addButtonText}>הוסף מטלה</Text>
         </TouchableOpacity>
       </View>
       {chores.length > 0 && (
         <Text style={styles.hint}>
-          לחיצה = שיוך בן משפחה · לחיצה ארוכה על תא משויך = סימון בוצע (מזכה בנקודות) · לחיצה ארוכה על שם מטלה = הסרה
+          לחיצה על תא = שיוך בן משפחה · לחיצה ארוכה על תא משויך = סימון בוצע (מזכה בנקודות) · לחיצה ארוכה על שם מטלה = הסרה
         </Text>
       )}
 
@@ -213,9 +247,10 @@ const styles = StyleSheet.create({
   assignBoxEmpty: { backgroundColor: '#f2f2f2', borderWidth: 1, borderColor: '#e3e3e3', borderStyle: 'dashed' },
   assignBoxDone: { opacity: 0.5 },
   assignedText: { color: '#fff', fontWeight: '600', fontSize: 12 },
-  emptyText: { color: '#bbb', fontSize: 14 },
+  emptyText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
   doneCheck: { position: 'absolute', top: 2, left: 4, color: '#fff', fontWeight: '900', fontSize: 12 },
-  addChoreRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center', paddingHorizontal: 16, marginTop: 14 },
+  addChoreBox: { paddingHorizontal: 16, marginTop: 14, gap: 8 },
+  addChoreRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
   input: {
     flex: 1,
     borderWidth: 1,
@@ -234,7 +269,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
   },
-  addButton: { backgroundColor: '#FF6B35', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10 },
-  addButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  label: { fontSize: 12, color: '#666', textAlign: 'right', fontWeight: '600' },
+  daysRow: { flexDirection: 'row-reverse', gap: 6 },
+  dayChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#f2f2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayChipSelected: { backgroundColor: '#FF6B35' },
+  dayChipText: { fontSize: 13, color: '#666', fontWeight: '600' },
+  dayChipTextSelected: { color: '#fff' },
+  addButton: { backgroundColor: '#123B27', paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  addButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   hint: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 8, paddingHorizontal: 16 },
 });

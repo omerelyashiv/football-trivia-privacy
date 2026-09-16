@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Reward, FamilyMember, PointsBalance } from '../types';
 import { generateId } from '../id';
-import AssignPickerModal from './AssignPickerModal';
 
 interface Props {
   rewards: Reward[];
@@ -21,7 +20,6 @@ export default function RewardsSection({
 }: Props) {
   const [name, setName] = useState('');
   const [cost, setCost] = useState('50');
-  const [redeemFor, setRedeemFor] = useState<string | null>(null);
 
   function addReward() {
     const trimmed = name.trim();
@@ -40,26 +38,20 @@ export default function RewardsSection({
     ]);
   }
 
-  function redeem(reward: Reward, memberId: string) {
-    const member = members.find((m) => m.id === memberId);
-    const balance = pointsBalance[memberId] ?? 0;
+  function redeem(reward: Reward, member: FamilyMember) {
+    const balance = pointsBalance[member.id] ?? 0;
     if (balance < reward.cost) {
-      Alert.alert(
-        'אין מספיק נקודות',
-        `ל${member?.name ?? ''} יש ${balance} נקודות, ו"${reward.name}" עולה ${reward.cost}.`
-      );
+      Alert.alert('אין מספיק נקודות', `יש לך ${balance} נקודות, ו"${reward.name}" עולה ${reward.cost}.`);
       return;
     }
-    Alert.alert('מימוש פרס', `לתת ל${member?.name ?? ''} את "${reward.name}" תמורת ${reward.cost} נקודות?`, [
+    Alert.alert('מימוש פרס', `לממש את "${reward.name}" תמורת ${reward.cost} נקודות?`, [
       { text: 'ביטול', style: 'cancel' },
       {
         text: 'מממש',
-        onPress: () => onPointsBalanceChange({ ...pointsBalance, [memberId]: balance - reward.cost }),
+        onPress: () => onPointsBalanceChange({ ...pointsBalance, [member.id]: balance - reward.cost }),
       },
     ]);
   }
-
-  const redeemTarget = rewards.find((r) => r.id === redeemFor);
 
   return (
     <View style={styles.container}>
@@ -79,13 +71,26 @@ export default function RewardsSection({
 
       {rewards.map((r) => (
         <View key={r.id} style={styles.rewardRow}>
-          <TouchableOpacity style={styles.rewardInfo} onLongPress={() => removeReward(r.id)}>
+          <TouchableOpacity onLongPress={() => removeReward(r.id)}>
             <Text style={styles.rewardName}>{r.name}</Text>
             <Text style={styles.rewardCost}>⭐ {r.cost} נקודות</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.redeemButton} onPress={() => setRedeemFor(r.id)}>
-            <Text style={styles.redeemButtonText}>מימוש</Text>
-          </TouchableOpacity>
+          {members.length > 0 && (
+            <View style={styles.redeemRow}>
+              <Text style={styles.redeemLabel}>מי מממש:</Text>
+              <View style={styles.redeemChips}>
+                {members.map((m) => (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[styles.memberButton, { backgroundColor: m.color }]}
+                    onPress={() => redeem(r, m)}
+                  >
+                    <Text style={styles.memberButtonText}>{m.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
       ))}
       {rewards.length === 0 && <Text style={styles.empty}>עדיין לא הוגדרו פרסים</Text>}
@@ -114,16 +119,7 @@ export default function RewardsSection({
           </TouchableOpacity>
         </View>
       </View>
-      {rewards.length > 0 && <Text style={styles.hint}>לחיצה ארוכה על פרס = הסרה</Text>}
-
-      <AssignPickerModal
-        visible={redeemFor !== null}
-        members={members}
-        onClose={() => setRedeemFor(null)}
-        onSelect={(memberId) => {
-          if (redeemTarget && memberId) redeem(redeemTarget, memberId);
-        }}
-      />
+      {rewards.length > 0 && <Text style={styles.hint}>לחיצה על שם = מממש בעצמו · לחיצה ארוכה על פרס = הסרה</Text>}
     </View>
   );
 }
@@ -135,18 +131,18 @@ const styles = StyleSheet.create({
   balanceChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16 },
   balanceChipText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   rewardRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    gap: 8,
   },
-  rewardInfo: { flex: 1 },
   rewardName: { fontSize: 14, fontWeight: '600', color: '#222', textAlign: 'right' },
   rewardCost: { fontSize: 12, color: '#B8860B', textAlign: 'right', marginTop: 2 },
-  redeemButton: { backgroundColor: '#4D9DE0', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  redeemButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  redeemRow: { flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  redeemLabel: { fontSize: 11, color: '#999' },
+  redeemChips: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, flex: 1 },
+  memberButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  memberButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   empty: { textAlign: 'right', color: '#999', fontSize: 13, paddingVertical: 8 },
   addBox: { marginTop: 14 },
   input: {

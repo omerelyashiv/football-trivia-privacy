@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Homework, FamilyMember, HomeworkReminderOffset, HOMEWORK_REMINDER_OFFSETS } from '../types';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import {
+  Homework,
+  FamilyMember,
+  PointsBalance,
+  HomeworkReminderOffset,
+  HOMEWORK_REMINDER_OFFSETS,
+} from '../types';
 import { generateId } from '../id';
 import { formatDueDate, isOverdue, buildDateFromDayMonth } from '../dateFormat';
 import { scheduleReminderNotification, cancelReminderNotification } from '../notifications';
@@ -9,7 +15,9 @@ import AssignPickerModal from './AssignPickerModal';
 interface Props {
   homework: Homework[];
   members: FamilyMember[];
+  pointsBalance: PointsBalance;
   onChange: (homework: Homework[]) => void;
+  onPointsBalanceChange: (pointsBalance: PointsBalance) => void;
 }
 
 const OFFSET_LABELS: Record<HomeworkReminderOffset, string> = {
@@ -25,17 +33,25 @@ const DUE_PRESETS = [
   { label: 'בעוד שבועיים', days: 14 },
 ];
 
+const DEFAULT_POINTS = 10;
+const DATE_COL_WIDTH = 62;
+const SUBJECT_COL_WIDTH = 84;
+const TASK_COL_WIDTH = 140;
+const POINTS_COL_WIDTH = 46;
+const DONE_COL_WIDTH = 36;
+
 function todayPlus(days: number): { day: string; month: string } {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return { day: String(d.getDate()), month: String(d.getMonth() + 1) };
 }
 
-export default function HomeworkPlanner({ homework, members, onChange }: Props) {
+export default function HomeworkPlanner({ homework, members, pointsBalance, onChange, onPointsBalanceChange }: Props) {
   const initial = todayPlus(1);
   const [subject, setSubject] = useState('');
   const [task, setTask] = useState('');
   const [pages, setPages] = useState('');
+  const [points, setPoints] = useState(String(DEFAULT_POINTS));
   const [dueDay, setDueDay] = useState(initial.day);
   const [dueMonth, setDueMonth] = useState(initial.month);
   const [offsets, setOffsets] = useState<Set<HomeworkReminderOffset>>(new Set([7, 3, 1]));
@@ -86,26 +102,35 @@ export default function HomeworkPlanner({ homework, members, onChange }: Props) 
       dueAt: dueDate.toISOString(),
       reminderOffsets: selectedOffsets,
       notificationIds,
+      points: Math.max(0, parseInt(points, 10) || 0),
       done: false,
     };
     onChange([...homework, item]);
     setSubject('');
     setTask('');
     setPages('');
+    setPoints(String(DEFAULT_POINTS));
     const next = todayPlus(1);
     setDueDay(next.day);
     setDueMonth(next.month);
   }
 
-  async function toggleDone(id: string) {
-    const item = homework.find((h) => h.id === id);
-    if (!item) return;
-    if (!item.done) {
+  async function toggleDone(item: Homework) {
+    const willBeDone = !item.done;
+    if (willBeDone) {
       await Promise.all(item.notificationIds.map((n) => cancelReminderNotification(n)));
     }
     onChange(
-      homework.map((h) => (h.id === id ? { ...h, done: !h.done, notificationIds: h.done ? h.notificationIds : [] } : h))
+      homework.map((h) =>
+        h.id === item.id ? { ...h, done: willBeDone, notificationIds: willBeDone ? [] : h.notificationIds } : h
+      )
     );
+
+    if (item.assignedTo && item.points > 0) {
+      const delta = willBeDone ? item.points : -item.points;
+      const currentBalance = pointsBalance[item.assignedTo] ?? 0;
+      onPointsBalanceChange({ ...pointsBalance, [item.assignedTo]: currentBalance + delta });
+    }
   }
 
   function removeHomework(id: string) {
@@ -138,39 +163,71 @@ export default function HomeworkPlanner({ homework, members, onChange }: Props) 
     <View style={styles.container}>
       <Text style={styles.title}>📚 שיעורי בית</Text>
 
-      {sorted.map((h) => {
-        const member = members.find((m) => m.id === h.assignedTo);
-        const overdue = !h.done && isOverdue(h.dueAt);
-        return (
-          <View key={h.id} style={styles.row}>
-            <TouchableOpacity style={styles.checkbox} onPress={() => toggleDone(h.id)}>
-              <Text style={styles.checkboxMark}>{h.done ? '✓' : ''}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.rowBody} onLongPress={() => removeHomework(h.id)}>
-              <View style={styles.subjectRow}>
-                <Text style={[styles.subjectBadge, h.done && styles.doneText]}>{h.subject}</Text>
-                <Text style={[styles.dueText, overdue && styles.overdueText]}>
-                  {overdue ? 'עבר הזמן · ' : ''}
-                  {formatDueDate(h.dueAt)}
-                </Text>
+      {homework.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View>
+            <View style={styles.headerRow}>
+              <View style={[styles.cell, styles.dateCol, styles.headerCell]}>
+                <Text style={styles.headerText}>תאריך</Text>
               </View>
-              <Text style={[styles.taskText, h.done && styles.doneText]} numberOfLines={2}>
-                {h.task}
-                {h.pages ? ` · עמ' ${h.pages}` : ''}
-              </Text>
-              <TouchableOpacity onPress={() => setAssignFor(h.id)}>
-                {member ? (
-                  <View style={[styles.memberChip, { backgroundColor: member.color }]}>
-                    <Text style={styles.memberChipText}>{member.name}</Text>
+              <View style={[styles.cell, styles.subjectCol, styles.headerCell]}>
+                <Text style={styles.headerText}>מקצוע</Text>
+              </View>
+              <View style={[styles.cell, styles.taskCol, styles.headerCell]}>
+                <Text style={styles.headerText}>מה לעשות</Text>
+              </View>
+              <View style={[styles.cell, styles.pointsCol, styles.headerCell]}>
+                <Text style={styles.headerText}>⭐</Text>
+              </View>
+              <View style={[styles.cell, styles.doneCol, styles.headerCell]}>
+                <Text style={styles.headerText}>✓</Text>
+              </View>
+            </View>
+
+            {sorted.map((h) => {
+              const member = members.find((m) => m.id === h.assignedTo);
+              const overdue = !h.done && isOverdue(h.dueAt);
+              return (
+                <TouchableOpacity
+                  key={h.id}
+                  style={styles.row}
+                  onLongPress={() => removeHomework(h.id)}
+                >
+                  <View style={[styles.cell, styles.dateCol]}>
+                    <Text style={[styles.dateText, overdue && styles.overdueText]}>{formatDueDate(h.dueAt)}</Text>
                   </View>
-                ) : (
-                  <Text style={styles.assignHint}>שייך לילד/ה</Text>
-                )}
-              </TouchableOpacity>
-            </TouchableOpacity>
+                  <View style={[styles.cell, styles.subjectCol]}>
+                    <Text style={[styles.subjectText, h.done && styles.doneText]} numberOfLines={2}>
+                      {h.subject}
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={[styles.cell, styles.taskCol]} onPress={() => setAssignFor(h.id)}>
+                    <Text style={[styles.taskText, h.done && styles.doneText]} numberOfLines={2}>
+                      {h.task}
+                      {h.pages ? ` · עמ' ${h.pages}` : ''}
+                    </Text>
+                    {member ? (
+                      <View style={[styles.memberChip, { backgroundColor: member.color }]}>
+                        <Text style={styles.memberChipText}>{member.name}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.assignHint}>שייך לילד/ה</Text>
+                    )}
+                  </TouchableOpacity>
+                  <View style={[styles.cell, styles.pointsCol]}>
+                    <Text style={styles.pointsText}>{h.points}</Text>
+                  </View>
+                  <View style={[styles.cell, styles.doneCol]}>
+                    <TouchableOpacity style={styles.checkbox} onPress={() => toggleDone(h)}>
+                      <Text style={styles.checkboxMark}>{h.done ? '✓' : ''}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        );
-      })}
+        </ScrollView>
+      )}
       {homework.length === 0 && <Text style={styles.empty}>אין שיעורי בית רשומים</Text>}
 
       <View style={styles.addBox}>
@@ -227,6 +284,16 @@ export default function HomeworkPlanner({ homework, members, onChange }: Props) 
             keyboardType="number-pad"
             textAlign="center"
           />
+          <Text style={styles.label}>נקודות:</Text>
+          <TextInput
+            style={styles.pointsInput}
+            placeholder="נק'"
+            placeholderTextColor="#999"
+            value={points}
+            onChangeText={setPoints}
+            keyboardType="number-pad"
+            textAlign="center"
+          />
         </View>
 
         <Text style={styles.label}>תזכורות:</Text>
@@ -248,7 +315,9 @@ export default function HomeworkPlanner({ homework, members, onChange }: Props) 
           <Text style={styles.addButtonText}>הוסף שיעורי בית</Text>
         </TouchableOpacity>
       </View>
-      {homework.length > 0 && <Text style={styles.hint}>לחיצה ארוכה על שורה = מחיקה</Text>}
+      {homework.length > 0 && (
+        <Text style={styles.hint}>לחיצה על "מה לעשות" = שיוך לילד/ה · לחיצה ארוכה על שורה = מחיקה</Text>
+      )}
 
       <AssignPickerModal
         visible={assignFor !== null}
@@ -265,28 +334,35 @@ export default function HomeworkPlanner({ homework, members, onChange }: Props) 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 20 },
   title: { fontSize: 16, fontWeight: '700', color: '#333', textAlign: 'right', marginBottom: 10 },
-  row: { flexDirection: 'row-reverse', alignItems: 'flex-start', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', gap: 10 },
+  headerRow: { flexDirection: 'row-reverse' },
+  row: { flexDirection: 'row-reverse', borderTopWidth: 1, borderTopColor: '#eee' },
+  cell: { padding: 6, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#f2f2f2' },
+  headerCell: { paddingVertical: 8, backgroundColor: '#FAF8F5' },
+  headerText: { fontWeight: '700', fontSize: 11, color: '#444' },
+  dateCol: { width: DATE_COL_WIDTH },
+  subjectCol: { width: SUBJECT_COL_WIDTH, alignItems: 'flex-end', paddingRight: 8 },
+  taskCol: { width: TASK_COL_WIDTH, alignItems: 'flex-end', paddingRight: 8 },
+  pointsCol: { width: POINTS_COL_WIDTH },
+  doneCol: { width: DONE_COL_WIDTH },
+  dateText: { fontSize: 11, color: '#555', textAlign: 'center' },
+  overdueText: { color: '#c33', fontWeight: '700' },
+  subjectText: { fontSize: 12, fontWeight: '700', color: '#7768AE', textAlign: 'right' },
+  taskText: { fontSize: 12, color: '#222', textAlign: 'right' },
+  doneText: { textDecorationLine: 'line-through', color: '#999' },
+  pointsText: { fontSize: 12, fontWeight: '700', color: '#B8860B' },
+  memberChip: { alignSelf: 'flex-end', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 4 },
+  memberChipText: { color: '#fff', fontSize: 10, fontWeight: '600' },
+  assignHint: { fontSize: 10, color: '#4D9DE0', textAlign: 'right', marginTop: 4 },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     borderColor: '#123B27',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
-  checkboxMark: { color: '#123B27', fontWeight: '900', fontSize: 13 },
-  rowBody: { flex: 1 },
-  subjectRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
-  subjectBadge: { fontSize: 12, fontWeight: '800', color: '#7768AE', textAlign: 'right' },
-  dueText: { fontSize: 12, color: '#777' },
-  overdueText: { color: '#c33', fontWeight: '700' },
-  taskText: { fontSize: 14, color: '#222', textAlign: 'right', fontWeight: '600', marginTop: 3 },
-  doneText: { textDecorationLine: 'line-through', color: '#999' },
-  memberChip: { alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, marginTop: 6 },
-  memberChipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
-  assignHint: { fontSize: 12, color: '#4D9DE0', textAlign: 'right', marginTop: 6 },
+  checkboxMark: { color: '#123B27', fontWeight: '900', fontSize: 12 },
   empty: { textAlign: 'right', color: '#999', fontSize: 13, paddingVertical: 8 },
   addBox: { marginTop: 14, gap: 8 },
   input: {
@@ -301,7 +377,7 @@ const styles = StyleSheet.create({
   presetsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   presetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#f2f2f2' },
   presetChipText: { fontSize: 12, color: '#555' },
-  dateRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
+  dateRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   dateInput: {
     width: 56,
     borderWidth: 1,
@@ -311,6 +387,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   dateSeparator: { fontSize: 16, color: '#999' },
+  pointsInput: {
+    width: 56,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
   offsetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#f2f2f2' },
   offsetChipSelected: { backgroundColor: '#7768AE' },
   offsetChipText: { fontSize: 12, color: '#555' },
