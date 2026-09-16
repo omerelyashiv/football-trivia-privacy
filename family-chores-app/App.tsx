@@ -4,6 +4,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, View, ActivityIndicator } f
 import MembersBar from './src/components/MembersBar';
 import ChoresTable from './src/components/ChoresTable';
 import RemindersList from './src/components/RemindersList';
+import HomeworkPlanner from './src/components/HomeworkPlanner';
 import RewardsSection from './src/components/RewardsSection';
 import { loadData, saveData, DEFAULT_DATA } from './src/storage';
 import { AppData } from './src/types';
@@ -68,6 +69,14 @@ export default function App() {
           pointsBalance={data.pointsBalance}
           onRewardsChange={(rewards) => setData((d) => ({ ...d, rewards }))}
           onPointsBalanceChange={(pointsBalance) => setData((d) => ({ ...d, pointsBalance }))}
+        />
+
+        <View style={styles.divider} />
+
+        <HomeworkPlanner
+          homework={data.homework}
+          members={data.members}
+          onChange={(homework) => setData((d) => ({ ...d, homework }))}
         />
 
         <View style={styles.divider} />

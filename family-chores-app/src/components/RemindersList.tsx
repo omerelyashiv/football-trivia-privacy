@@ -89,7 +89,7 @@ export default function RemindersList({ reminders, members, onChange }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>⏰ תזכורות (שיעורי בית וכו')</Text>
+      <Text style={styles.title}>⏰ תזכורות כלליות</Text>
 
       {sorted.map((r) => {
         const member = members.find((m) => m.id === r.assignedTo);

@@ -9,6 +9,7 @@ export const DEFAULT_DATA: AppData = {
   assignments: {},
   done: {},
   reminders: [],
+  homework: [],
   rewards: [],
   pointsBalance: {},
 };

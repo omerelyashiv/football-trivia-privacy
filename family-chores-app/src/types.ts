@@ -37,6 +37,21 @@ export interface Reminder {
   notificationId?: string;
 }
 
+export const HOMEWORK_REMINDER_OFFSETS = [7, 3, 1] as const;
+export type HomeworkReminderOffset = (typeof HOMEWORK_REMINDER_OFFSETS)[number];
+
+export interface Homework {
+  id: string;
+  subject: string; // מקצוע
+  task: string; // שם המטלה
+  pages?: string; // אילו עמודים/פרטים
+  dueAt: string; // ISO date - when it needs to be submitted/finished
+  assignedTo?: string; // FamilyMember id
+  reminderOffsets: HomeworkReminderOffset[]; // days-before-due reminders that were requested
+  notificationIds: string[];
+  done: boolean;
+}
+
 export interface Reward {
   id: string;
   name: string;
@@ -52,6 +67,7 @@ export interface AppData {
   assignments: Assignments;
   done: DoneMap;
   reminders: Reminder[];
+  homework: Homework[];
   rewards: Reward[];
   pointsBalance: PointsBalance;
 }
