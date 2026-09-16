@@ -14,7 +14,7 @@ import { getStoredFamilyCode, storeFamilyCode, clearStoredFamilyCode, normalizeF
 import { fetchOrCreateFamilyData, pushFamilyData, subscribeFamilyData } from './src/remoteSync';
 
 const TAB_TITLES: Record<TabKey, { title: string; subtitle: string }> = {
-  chores: { title: '🏠 מטלות הבית', subtitle: 'מי עושה מה, לפי ימים' },
+  chores: { title: '🏠 מטלות הבית', subtitle: 'בחרו יום ותראו מה יש בו' },
   homework: { title: '📚 שיעורי בית', subtitle: 'כמו יומן - מקצוע, משימה ותאריך' },
   reminders: { title: '⏰ תזכורות', subtitle: 'כל מה שלא רוצים לשכוח' },
   rewards: { title: '🎁 מצב פרסים', subtitle: 'נקודות ופרסים למימוש' },
@@ -143,12 +143,8 @@ export default function App() {
             <ChoresTable
               chores={data.chores}
               members={data.members}
-              assignments={data.assignments}
-              done={data.done}
               pointsBalance={data.pointsBalance}
               onChoresChange={(chores) => setData((d) => ({ ...d, chores }))}
-              onAssignmentsChange={(assignments) => setData((d) => ({ ...d, assignments }))}
-              onDoneChange={(done) => setData((d) => ({ ...d, done }))}
               onPointsBalanceChange={(pointsBalance) => setData((d) => ({ ...d, pointsBalance }))}
             />
           </>

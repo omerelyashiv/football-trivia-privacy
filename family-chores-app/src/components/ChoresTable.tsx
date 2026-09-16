@@ -1,176 +1,179 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Alert } from 'react-native';
-import { Chore, FamilyMember, Assignments, DoneMap, PointsBalance, DAYS, DayOfWeek } from '../types';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Switch } from 'react-native';
+import { Chore, FamilyMember, PointsBalance } from '../types';
 import { generateId } from '../id';
-import AssignPickerModal from './AssignPickerModal';
+import { toDateKey, todayKey, weekdayOfKey, formatDayHeading } from '../calendar';
+import MonthCalendar from './MonthCalendar';
+import MultiAssignModal from './MultiAssignModal';
 
 interface Props {
   chores: Chore[];
   members: FamilyMember[];
-  assignments: Assignments;
-  done: DoneMap;
   pointsBalance: PointsBalance;
   onChoresChange: (chores: Chore[]) => void;
-  onAssignmentsChange: (assignments: Assignments) => void;
-  onDoneChange: (done: DoneMap) => void;
   onPointsBalanceChange: (pointsBalance: PointsBalance) => void;
 }
 
-const NAME_COL_WIDTH = 116;
-const DAY_COL_WIDTH = 86;
 const DEFAULT_POINTS = 5;
-const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
-const SHORT_DAY_LABELS: Record<DayOfWeek, string> = {
-  0: 'א', 1: 'ב', 2: 'ג', 3: 'ד', 4: 'ה', 5: 'ו', 6: 'ש',
-};
 
-export default function ChoresTable({
-  chores,
-  members,
-  assignments,
-  done,
-  pointsBalance,
-  onChoresChange,
-  onAssignmentsChange,
-  onDoneChange,
-  onPointsBalanceChange,
-}: Props) {
+function choresForDate(chores: Chore[], dateKey: string): Chore[] {
+  return chores.filter((c) => {
+    if (c.date === dateKey) return true;
+    if (!c.repeatWeekly) return false;
+    if (c.date > dateKey) return false;
+    return weekdayOfKey(c.date) === weekdayOfKey(dateKey);
+  });
+}
+
+export default function ChoresTable({ chores, members, pointsBalance, onChoresChange, onPointsBalanceChange }: Props) {
+  const now = new Date();
+  const [viewYear, setViewYear] = useState(now.getFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getMonth());
+  const [selectedDateKey, setSelectedDateKey] = useState(todayKey());
+
   const [newChoreName, setNewChoreName] = useState('');
   const [newChorePoints, setNewChorePoints] = useState(String(DEFAULT_POINTS));
-  const [newChoreDays, setNewChoreDays] = useState<Set<DayOfWeek>>(new Set(ALL_DAYS));
-  const [picker, setPicker] = useState<{ choreId: string; day: DayOfWeek } | null>(null);
+  const [newChoreAssignees, setNewChoreAssignees] = useState<string[]>([]);
+  const [newChoreRepeat, setNewChoreRepeat] = useState(false);
+  const [newAssigneesModalOpen, setNewAssigneesModalOpen] = useState(false);
+  const [editAssigneesFor, setEditAssigneesFor] = useState<string | null>(null);
 
-  function toggleNewChoreDay(day: DayOfWeek) {
-    const next = new Set(newChoreDays);
-    if (next.has(day)) next.delete(day);
-    else next.add(day);
-    setNewChoreDays(next);
+  function goPrevMonth() {
+    const d = new Date(viewYear, viewMonth - 1, 1);
+    setViewYear(d.getFullYear());
+    setViewMonth(d.getMonth());
+  }
+  function goNextMonth() {
+    const d = new Date(viewYear, viewMonth + 1, 1);
+    setViewYear(d.getFullYear());
+    setViewMonth(d.getMonth());
+  }
+
+  function toggleNewAssignee(memberId: string) {
+    setNewChoreAssignees((cur) => (cur.includes(memberId) ? cur.filter((id) => id !== memberId) : [...cur, memberId]));
   }
 
   function addChore() {
     const trimmed = newChoreName.trim();
-    if (!trimmed || newChoreDays.size === 0) return;
+    if (!trimmed) return;
     const points = Math.max(0, parseInt(newChorePoints, 10) || 0);
-    const days = ALL_DAYS.filter((d) => newChoreDays.has(d));
-    onChoresChange([...chores, { id: generateId(), name: trimmed, points, days }]);
+    const chore: Chore = {
+      id: generateId(),
+      name: trimmed,
+      points,
+      date: selectedDateKey,
+      assignedTo: newChoreAssignees,
+      repeatWeekly: newChoreRepeat,
+      doneDates: [],
+    };
+    onChoresChange([...chores, chore]);
     setNewChoreName('');
     setNewChorePoints(String(DEFAULT_POINTS));
-    setNewChoreDays(new Set(ALL_DAYS));
+    setNewChoreAssignees([]);
+    setNewChoreRepeat(false);
   }
 
   function removeChore(id: string) {
     const chore = chores.find((c) => c.id === id);
-    Alert.alert('הסרת מטלה', `להסיר את "${chore?.name ?? ''}"?`, [
+    const message = chore?.repeatWeekly
+      ? `להסיר את "${chore?.name ?? ''}"? זו מטלה חוזרת - כל המופעים העתידיים שלה יימחקו.`
+      : `להסיר את "${chore?.name ?? ''}"?`;
+    Alert.alert('הסרת מטלה', message, [
       { text: 'ביטול', style: 'cancel' },
-      {
-        text: 'הסר',
-        style: 'destructive',
-        onPress: () => onChoresChange(chores.filter((c) => c.id !== id)),
-      },
+      { text: 'הסר', style: 'destructive', onPress: () => onChoresChange(chores.filter((c) => c.id !== id)) },
     ]);
   }
 
-  function memberFor(choreId: string, day: DayOfWeek): FamilyMember | undefined {
-    const memberId = assignments[choreId]?.[day];
-    return members.find((m) => m.id === memberId);
-  }
+  function toggleDone(chore: Chore, dateKey: string) {
+    const isDone = chore.doneDates.includes(dateKey);
+    const nextDoneDates = isDone ? chore.doneDates.filter((d) => d !== dateKey) : [...chore.doneDates, dateKey];
+    onChoresChange(chores.map((c) => (c.id === chore.id ? { ...c, doneDates: nextDoneDates } : c)));
 
-  function assign(choreId: string, day: DayOfWeek, memberId: string | undefined) {
-    const next: Assignments = { ...assignments, [choreId]: { ...assignments[choreId] } };
-    if (memberId) next[choreId][day] = memberId;
-    else delete next[choreId][day];
-    onAssignmentsChange(next);
-  }
-
-  function toggleDone(chore: Chore, day: DayOfWeek) {
-    const current = done[chore.id]?.[day] ?? false;
-    const willBeDone = !current;
-    const next: DoneMap = { ...done, [chore.id]: { ...done[chore.id], [day]: willBeDone } };
-    onDoneChange(next);
-
-    const memberId = assignments[chore.id]?.[day];
-    if (memberId && chore.points > 0) {
-      const delta = willBeDone ? chore.points : -chore.points;
-      const currentBalance = pointsBalance[memberId] ?? 0;
-      onPointsBalanceChange({ ...pointsBalance, [memberId]: currentBalance + delta });
+    if (chore.points > 0 && chore.assignedTo.length > 0) {
+      const delta = isDone ? -chore.points : chore.points;
+      const nextBalance = { ...pointsBalance };
+      for (const memberId of chore.assignedTo) {
+        nextBalance[memberId] = (nextBalance[memberId] ?? 0) + delta;
+      }
+      onPointsBalanceChange(nextBalance);
     }
   }
 
+  function setChoreAssignees(choreId: string, assignedTo: string[]) {
+    onChoresChange(chores.map((c) => (c.id === choreId ? { ...c, assignedTo } : c)));
+  }
+
+  const dayChores = choresForDate(chores, selectedDateKey);
+  const markedDateKeys = new Set<string>();
+  for (let d = 1; d <= 31; d++) {
+    const candidate = new Date(viewYear, viewMonth, d);
+    if (candidate.getMonth() !== viewMonth) continue;
+    const key = toDateKey(candidate);
+    if (choresForDate(chores, key).length > 0) markedDateKeys.add(key);
+  }
+
+  const editTarget = chores.find((c) => c.id === editAssigneesFor);
+
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View>
-          <View style={styles.headerRow}>
-            <View style={[styles.cell, styles.nameCol, styles.headerCell]}>
-              <Text style={styles.headerText}>מטלה</Text>
-            </View>
-            {DAYS.map((d) => (
-              <View key={d.key} style={[styles.cell, styles.dayCol, styles.headerCell]}>
-                <Text style={styles.headerText}>{d.label}</Text>
-              </View>
-            ))}
-          </View>
+      <MonthCalendar
+        year={viewYear}
+        month={viewMonth}
+        selectedDateKey={selectedDateKey}
+        markedDateKeys={markedDateKeys}
+        onSelectDate={setSelectedDateKey}
+        onPrevMonth={goPrevMonth}
+        onNextMonth={goNextMonth}
+      />
 
-          {chores.map((chore) => (
-            <View key={chore.id} style={styles.row}>
-              <View style={[styles.cell, styles.nameCol]}>
-                <View style={styles.nameHeaderRow}>
-                  <TouchableOpacity style={styles.deleteButton} onPress={() => removeChore(chore.id)}>
-                    <Text style={styles.deleteButtonText}>✕</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.choreName} numberOfLines={2}>
+      <Text style={styles.dayHeading}>{formatDayHeading(selectedDateKey)}</Text>
+
+      <View style={styles.choresList}>
+        {dayChores.map((chore) => {
+          const isDone = chore.doneDates.includes(selectedDateKey);
+          const assignees = members.filter((m) => chore.assignedTo.includes(m.id));
+          return (
+            <View key={chore.id} style={styles.choreRow}>
+              <TouchableOpacity style={styles.checkbox} onPress={() => toggleDone(chore, selectedDateKey)}>
+                <Text style={styles.checkboxMark}>{isDone ? '✓' : ''}</Text>
+              </TouchableOpacity>
+              <View style={styles.choreInfo}>
+                <View style={styles.choreNameRow}>
+                  {chore.repeatWeekly && <Text style={styles.repeatIcon}>🔁</Text>}
+                  <Text style={[styles.choreName, isDone && styles.choreNameDone]} numberOfLines={2}>
                     {chore.name}
                   </Text>
+                  {chore.points > 0 && (
+                    <View style={styles.pointsBadge}>
+                      <Text style={styles.pointsBadgeText}>⭐ {chore.points}</Text>
+                    </View>
+                  )}
                 </View>
-                {chore.points > 0 && (
-                  <View style={styles.pointsBadge}>
-                    <Text style={styles.pointsBadgeText}>⭐ {chore.points}</Text>
-                  </View>
-                )}
-              </View>
-              {DAYS.map((d) => {
-                const applies = chore.days.includes(d.key);
-                if (!applies) {
-                  return <View key={d.key} style={[styles.cell, styles.dayCol]} />;
-                }
-                const member = memberFor(chore.id, d.key);
-                const isDone = done[chore.id]?.[d.key] ?? false;
-                return (
-                  <View key={d.key} style={[styles.cell, styles.dayCol]}>
-                    {member ? (
-                      <View style={[styles.assignBox, { backgroundColor: member.color }, isDone && styles.assignBoxDone]}>
-                        <TouchableOpacity style={styles.doneCheckbox} onPress={() => toggleDone(chore, d.key)}>
-                          <Text style={styles.doneCheckboxMark}>{isDone ? '✓' : ''}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.assignedNameArea}
-                          onPress={() => setPicker({ choreId: chore.id, day: d.key })}
-                        >
-                          <Text style={styles.assignedText} numberOfLines={1}>
-                            {member.name}
-                          </Text>
-                        </TouchableOpacity>
+                <TouchableOpacity style={styles.assigneesRow} onPress={() => setEditAssigneesFor(chore.id)}>
+                  {assignees.length > 0 ? (
+                    assignees.map((m) => (
+                      <View key={m.id} style={[styles.assigneeChip, { backgroundColor: m.color }]}>
+                        <Text style={styles.assigneeChipText}>{m.name}</Text>
                       </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={[styles.assignBox, styles.assignBoxEmpty]}
-                        onPress={() => setPicker({ choreId: chore.id, day: d.key })}
-                      >
-                        <Text style={styles.emptyText}>הקצה</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })}
+                    ))
+                  ) : (
+                    <Text style={styles.assignHint}>שייך למישהו</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.deleteButton} onPress={() => removeChore(chore.id)}>
+                <Text style={styles.deleteButtonText}>✕</Text>
+              </TouchableOpacity>
             </View>
-          ))}
-        </View>
-      </ScrollView>
+          );
+        })}
+        {dayChores.length === 0 && <Text style={styles.empty}>אין מטלות ליום הזה</Text>}
+      </View>
 
       <View style={styles.addChoreBox}>
         <TextInput
           style={styles.input}
-          placeholder="הוסף מטלה חדשה..."
+          placeholder="הוסף מטלה ליום שנבחר..."
           placeholderTextColor="#999"
           value={newChoreName}
           onChangeText={setNewChoreName}
@@ -178,6 +181,7 @@ export default function ChoresTable({
           returnKeyType="done"
           textAlign="right"
         />
+
         <Text style={styles.label}>נקודות למטלה:</Text>
         <TextInput
           style={styles.pointsInput}
@@ -188,35 +192,53 @@ export default function ChoresTable({
           keyboardType="number-pad"
           textAlign="center"
         />
-        <Text style={styles.label}>באילו ימים:</Text>
-        <View style={styles.daysRow}>
-          {ALL_DAYS.map((d) => (
-            <TouchableOpacity
-              key={d}
-              style={[styles.dayChip, newChoreDays.has(d) && styles.dayChipSelected]}
-              onPress={() => toggleNewChoreDay(d)}
-            >
-              <Text style={[styles.dayChipText, newChoreDays.has(d) && styles.dayChipTextSelected]}>
-                {SHORT_DAY_LABELS[d]}
-              </Text>
-            </TouchableOpacity>
-          ))}
+
+        <Text style={styles.label}>מי מבצע:</Text>
+        <TouchableOpacity style={styles.assigneesPicker} onPress={() => setNewAssigneesModalOpen(true)}>
+          {newChoreAssignees.length > 0 ? (
+            <View style={styles.assigneesRow}>
+              {members
+                .filter((m) => newChoreAssignees.includes(m.id))
+                .map((m) => (
+                  <View key={m.id} style={[styles.assigneeChip, { backgroundColor: m.color }]}>
+                    <Text style={styles.assigneeChipText}>{m.name}</Text>
+                  </View>
+                ))}
+            </View>
+          ) : (
+            <Text style={styles.assignHint}>לחצו לבחירת מבצעים</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.repeatRow}>
+          <Switch value={newChoreRepeat} onValueChange={setNewChoreRepeat} />
+          <Text style={styles.label}>🔁 חוזר כל שבוע ביום הזה</Text>
         </View>
+
         <TouchableOpacity style={styles.addButton} onPress={addChore}>
           <Text style={styles.addButtonText}>הוסף מטלה</Text>
         </TouchableOpacity>
       </View>
-      {chores.length > 0 && (
-        <Text style={styles.hint}>לחיצה על "הקצה" = שיוך בן משפחה · לחיצה על העיגול = סימון בוצע · ✕ = הסרה</Text>
-      )}
 
-      <AssignPickerModal
-        visible={picker !== null}
+      <MultiAssignModal
+        visible={newAssigneesModalOpen}
         members={members}
-        onClose={() => setPicker(null)}
-        onSelect={(memberId) => {
-          if (picker) assign(picker.choreId, picker.day, memberId);
+        selected={newChoreAssignees}
+        onToggle={toggleNewAssignee}
+        onClose={() => setNewAssigneesModalOpen(false)}
+      />
+
+      <MultiAssignModal
+        visible={editAssigneesFor !== null}
+        members={members}
+        selected={editTarget?.assignedTo ?? []}
+        onToggle={(memberId) => {
+          if (!editTarget) return;
+          const cur = editTarget.assignedTo;
+          const next = cur.includes(memberId) ? cur.filter((id) => id !== memberId) : [...cur, memberId];
+          setChoreAssignees(editTarget.id, next);
         }}
+        onClose={() => setEditAssigneesFor(null)}
       />
     </View>
   );
@@ -224,15 +246,31 @@ export default function ChoresTable({
 
 const styles = StyleSheet.create({
   container: { paddingTop: 4 },
-  headerRow: { flexDirection: 'row-reverse' },
-  row: { flexDirection: 'row-reverse', borderTopWidth: 1, borderTopColor: '#eee' },
-  cell: { padding: 6, justifyContent: 'center', alignItems: 'center' },
-  nameCol: { width: NAME_COL_WIDTH, alignItems: 'flex-end', paddingRight: 6 },
-  dayCol: { width: DAY_COL_WIDTH },
-  headerCell: { paddingVertical: 10 },
-  headerText: { fontWeight: '700', fontSize: 12, color: '#444' },
-  nameHeaderRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4 },
-  choreName: { fontSize: 13, fontWeight: '600', color: '#222', textAlign: 'right', flexShrink: 1 },
+  dayHeading: { fontSize: 14, fontWeight: '700', color: '#123B27', textAlign: 'right', paddingHorizontal: 16, marginTop: 14, marginBottom: 6 },
+  choresList: { paddingHorizontal: 16 },
+  choreRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', gap: 10 },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#123B27',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxMark: { color: '#123B27', fontWeight: '900', fontSize: 13 },
+  choreInfo: { flex: 1 },
+  choreNameRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  repeatIcon: { fontSize: 12 },
+  choreName: { fontSize: 14, fontWeight: '600', color: '#222', textAlign: 'right' },
+  choreNameDone: { textDecorationLine: 'line-through', color: '#999' },
+  pointsBadge: { backgroundColor: '#FFF3D6', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
+  pointsBadgeText: { fontSize: 10, color: '#B8860B', fontWeight: '700' },
+  assigneesRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  assigneeChip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
+  assigneeChipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  assignHint: { fontSize: 12, color: '#4D9DE0', marginTop: 6 },
   deleteButton: {
     width: 20,
     height: 20,
@@ -240,41 +278,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f2f2',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
   deleteButtonText: { fontSize: 11, color: '#999', fontWeight: '700' },
-  pointsBadge: {
-    backgroundColor: '#FFF3D6',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    marginTop: 3,
-  },
-  pointsBadgeText: { fontSize: 10, color: '#B8860B', fontWeight: '700' },
-  assignBox: {
-    width: '100%',
-    minHeight: 44,
-    borderRadius: 10,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  assignBoxEmpty: { backgroundColor: '#f2f2f2', borderWidth: 1, borderColor: '#e3e3e3', borderStyle: 'dashed', justifyContent: 'center' },
-  assignBoxDone: { opacity: 0.5 },
-  doneCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneCheckboxMark: { color: '#fff', fontWeight: '900', fontSize: 11 },
-  assignedNameArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
-  assignedText: { color: '#fff', fontWeight: '600', fontSize: 11 },
-  emptyText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
-  addChoreBox: { paddingHorizontal: 16, marginTop: 14, gap: 6 },
+  empty: { textAlign: 'right', color: '#999', fontSize: 13, paddingVertical: 8 },
+  addChoreBox: { paddingHorizontal: 16, marginTop: 16, gap: 6, paddingTop: 14, borderTopWidth: 6, borderTopColor: '#F7F5F2' },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -295,19 +303,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   label: { fontSize: 12, color: '#666', textAlign: 'right', fontWeight: '600', marginTop: 4 },
-  daysRow: { flexDirection: 'row-reverse', gap: 6 },
-  dayChip: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#f2f2f2',
-    alignItems: 'center',
+  assigneesPicker: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
     justifyContent: 'center',
   },
-  dayChipSelected: { backgroundColor: '#FF6B35' },
-  dayChipText: { fontSize: 13, color: '#666', fontWeight: '600' },
-  dayChipTextSelected: { color: '#fff' },
-  addButton: { backgroundColor: '#123B27', paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginTop: 4 },
+  repeatRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginTop: 8 },
+  addButton: { backgroundColor: '#123B27', paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginTop: 8 },
   addButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  hint: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 8, paddingHorizontal: 16 },
 });

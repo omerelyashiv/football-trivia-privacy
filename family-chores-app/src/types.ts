@@ -20,14 +20,11 @@ export interface Chore {
   id: string;
   name: string;
   points: number;
-  days: DayOfWeek[]; // which days of the week this chore applies to
+  date: string; // ISO date (YYYY-MM-DD) - the anchor/first occurrence
+  assignedTo: string[]; // FamilyMember ids, can be more than one
+  repeatWeekly: boolean; // if true, this chore also occurs every week on the same weekday from `date` onward
+  doneDates: string[]; // ISO dates (YYYY-MM-DD) on which this chore (or a weekly occurrence of it) was marked done
 }
-
-// assignments[choreId][day] = memberId | undefined
-export type Assignments = Record<string, Partial<Record<DayOfWeek, string>>>;
-
-// done[choreId][day] = true | undefined
-export type DoneMap = Record<string, Partial<Record<DayOfWeek, boolean>>>;
 
 export interface Reminder {
   id: string;
@@ -66,8 +63,6 @@ export type PointsBalance = Record<string, number>;
 export interface AppData {
   members: FamilyMember[];
   chores: Chore[];
-  assignments: Assignments;
-  done: DoneMap;
   reminders: Reminder[];
   homework: Homework[];
   rewards: Reward[];
